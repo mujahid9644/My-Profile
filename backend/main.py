@@ -11,6 +11,7 @@ import time
 import logging
 from smtplib import SMTPAuthenticationError, SMTPException
 from urllib import request as urllib_request
+from urllib.parse import quote
 from urllib.error import HTTPError, URLError
 
 # Configure logging
@@ -212,28 +213,61 @@ Rules:
 5. Use a friendly but professional tone. Do not generate very long explanations."""
 
 def generate_with_gemini(message):
-    import google.generativeai as genai
-
     prompt = f"{build_chat_context()}\n\nUser: {message}\nAssistant:"
     last_error = None
     for index, api_key in enumerate(gemini_api_keys, start=1):
+        model_name = quote(GEMINI_MODEL, safe="")
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [{"text": prompt}],
+                }
+            ],
+            "generationConfig": {
+                "maxOutputTokens": GEMINI_MAX_OUTPUT_TOKENS,
+                "temperature": 0.4,
+            },
+        }
+        request_body = json.dumps(payload).encode("utf-8")
+        req = urllib_request.Request(
+            url,
+            data=request_body,
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
+
         try:
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel(GEMINI_MODEL)
-            response = model.generate_content(
-                prompt,
-                generation_config={
-                    "max_output_tokens": GEMINI_MAX_OUTPUT_TOKENS,
-                    "temperature": 0.4,
-                },
-                request_options={"timeout": GEMINI_TIMEOUT_SECONDS}
-            )
-            if response and response.text:
-                return response.text, f"Gemini Key {index}"
-            last_error = "No response generated"
+            with urllib_request.urlopen(req, timeout=GEMINI_TIMEOUT_SECONDS) as response:
+                data = json.loads(response.read().decode("utf-8"))
+        except HTTPError as e:
+            error_body = e.read().decode("utf-8", errors="replace")
+            last_error = f"Gemini HTTP {e.code}: {error_body}"
+            logger.warning(f"Gemini key {index} failed: {last_error}")
+            continue
+        except URLError as e:
+            last_error = f"Gemini connection error: {e.reason}"
+            logger.warning(f"Gemini key {index} failed: {last_error}")
+            continue
         except Exception as e:
             last_error = str(e)
             logger.warning(f"Gemini key {index} failed: {last_error}")
+
+        candidates = data.get("candidates") or []
+        if not candidates:
+            last_error = "Gemini returned no candidates"
+            logger.warning(f"Gemini key {index} failed: {last_error}")
+            continue
+
+        parts = candidates[0].get("content", {}).get("parts", [])
+        text = "".join(part.get("text", "") for part in parts).strip()
+        if text:
+            return text, f"Gemini Key {index}"
+
+        last_error = "Gemini returned no text"
+        logger.warning(f"Gemini key {index} failed: {last_error}")
+
     raise RuntimeError(last_error or "Gemini unavailable")
 
 def generate_with_openrouter(message):
