@@ -57,6 +57,7 @@ ALLOWED_ORIGINS = [
     "http://localhost:5500",
     "http://127.0.0.1:5500",
     "https://my-protfolio-vt1u.onrender.com",
+    "https://my-profile-pi-navy.vercel.app",
     "https://mujahid9644.github.io",
     "https://mujahid9644.github.io/my_protfolio"
 ]
@@ -300,7 +301,7 @@ def generate_ai_reply(message):
 @app.route("/api/chat", methods=["POST"])
 def chat_endpoint():
     if not gemini_api_keys and not OPENROUTER_API_KEY:
-        logger.error("No Gemini clients available")
+        logger.error("No AI provider keys available")
         return jsonify({"error": "Service not configured"}), 503
     
     try:
@@ -332,7 +333,10 @@ def chat_endpoint():
             
         except Exception as e:
             logger.error(f"AI provider error: {str(e)}")
-            return jsonify({"error": "AI service temporarily unavailable"}), 503
+            return jsonify({
+                "error": "AI service temporarily unavailable",
+                "detail": str(e)
+            }), 503
             
     except Exception as e:
         logger.error(f"Server Error: {str(e)}")

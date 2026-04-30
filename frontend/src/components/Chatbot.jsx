@@ -37,21 +37,33 @@ export default function Chatbot() {
     setStatus('Thinking...');
     handleNewMessage();
 
+    const chatUrl = `${API_BASE_URL}/api/chat`;
+    console.log('Chatbot final API URL:', chatUrl);
+
     try {
-      const res = await fetch(`${API_BASE_URL}/api/chat`, {
+      const res = await fetch(chatUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: value }),
       });
-      const data = await res.json();
+      const data = await res.json().catch((parseError) => {
+        console.error('Chatbot response JSON parse error:', parseError);
+        return {};
+      });
 
       if (!res.ok || data.error || !data.reply) {
+        console.error('Chatbot backend error response:', {
+          status: res.status,
+          statusText: res.statusText,
+          data,
+        });
         throw new Error(data.error || 'Service unavailable');
       }
 
       setMessages((current) => [...current, { from: 'bot', text: data.reply }]);
       setStatus(data.key_in_use ? `Using ${data.key_in_use}` : 'Online');
     } catch (error) {
+      console.error('Chatbot fetch error:', error);
       const isOffline = error.message.includes('Failed to fetch');
       setStatus(isOffline ? 'Offline' : 'Error');
       setMessages((current) => [
