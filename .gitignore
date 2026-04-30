@@ -20,6 +20,10 @@ wheels/
 .installed.cfg
 *.egg
 
+# Node / frontend build
+node_modules/
+dist/
+
 # Virtual Environment
 backend/venv/
 venv/
@@ -27,6 +31,8 @@ ENV/
 
 # Environment variables
 backend/.env
+backend/server.*.log
+vite.*.log
 
 # IDE specific files
 .idea/

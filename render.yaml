@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: my-protfolio-vt1u
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: npm ci && npm run build && pip install -r backend/requirements.txt
+    startCommand: cd backend && gunicorn main:app --bind 0.0.0.0:$PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: NODE_VERSION
+        value: 22.18.0
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash-lite
+      - key: GEMINI_MAX_OUTPUT_TOKENS
+        value: "180"
+      - key: OPENROUTER_MODEL
+        value: openrouter/free
+      - key: OPENROUTER_TIMEOUT_SECONDS
+        value: "20"
+      - key: SMTP_TIMEOUT_SECONDS
+        value: "8"
