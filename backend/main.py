@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory, g
 from flask_cors import CORS
 import os
-import json
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 import smtplib
@@ -10,26 +9,24 @@ from email.mime.multipart import MIMEMultipart
 import time
 import logging
 from smtplib import SMTPAuthenticationError, SMTPException
-from urllib import request as urllib_request
-from urllib.parse import quote
-from urllib.error import HTTPError, URLError
+import requests
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Load environment variables
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
-# Configure API keys
-GEMINI_API_KEY_1 = os.getenv("GEMINI_API_KEY_1")
-GEMINI_API_KEY_2 = os.getenv("GEMINI_API_KEY_2")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
-GEMINI_MAX_OUTPUT_TOKENS = int(os.getenv("GEMINI_MAX_OUTPUT_TOKENS", "180"))
-GEMINI_TIMEOUT_SECONDS = int(os.getenv("GEMINI_TIMEOUT_SECONDS", "15"))
+# Configure chatbot AI provider
+CLOUDFLARE_ACCOUNT_ID = os.getenv("CLOUDFLARE_ACCOUNT_ID")
+CLOUDFLARE_API_TOKEN = os.getenv("CLOUDFLARE_API_TOKEN")
+CLOUDFLARE_MODEL = os.getenv("CLOUDFLARE_MODEL", "@cf/meta/llama-3.1-8b-instruct")
+CLOUDFLARE_TIMEOUT_SECONDS = int(os.getenv("CLOUDFLARE_TIMEOUT_SECONDS", "15"))
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/free")
-OPENROUTER_TIMEOUT_SECONDS = int(os.getenv("OPENROUTER_TIMEOUT_SECONDS", "12"))
+OPENROUTER_TIMEOUT_SECONDS = int(os.getenv("OPENROUTER_TIMEOUT_SECONDS", "15"))
+CHATBOT_FALLBACK_REPLY = "Sorry, I\u2019m having trouble responding right now. Please try again shortly."
 GMAIL_EMAIL = os.getenv("GMAIL_EMAIL")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 SMTP_TIMEOUT_SECONDS = int(os.getenv("SMTP_TIMEOUT_SECONDS", "8"))
@@ -126,14 +123,12 @@ def health_endpoint():
 def root_endpoint():
     return "Backend is running", 200, {"Content-Type": "text/plain; charset=utf-8"}
 
-gemini_api_keys = [key.strip() for key in [GEMINI_API_KEY_1, GEMINI_API_KEY_2] if key and key.strip()]
-
-if gemini_api_keys:
-    logger.info(f"Configured {len(gemini_api_keys)} Gemini key(s)")
+if CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN:
+    logger.info(f"Configured Cloudflare Workers AI model: {CLOUDFLARE_MODEL}")
+else:
+    logger.error("Cloudflare Workers AI is not configured")
 if OPENROUTER_API_KEY:
     logger.info(f"Configured OpenRouter fallback model: {OPENROUTER_MODEL}")
-if not gemini_api_keys and not OPENROUTER_API_KEY:
-    logger.error("No AI provider key configured")
 
 def validate_email_data(data):
     if not data:
@@ -198,81 +193,76 @@ def send_email(contact_data):
         return jsonify({"error": "Failed to send email"}), 503
 
 def build_chat_context():
-    return """You are Mujahid Islam's AI portfolio assistant.
-Mujahid Islam is a Junior Full-Stack Developer & AI/LLM Developer based in Dhaka, Bangladesh (BSc in CSE from Dhaka International University).
-His main stack: Django, React, Tailwind CSS, PostgreSQL.
-AI skills: LLM integration, AI chatbot, LangChain concept, OpenAI/Gemini/Groq API concept, Telegram bot, WhatsApp bot concept, Google Sheets API concept.
-Projects: AI SalesBot SaaS, Dental Clinic Website, AI Chatbot API Platform, Portfolio Website.
-Contact: mujahidislam2540@gmail.com, GitHub/LinkedIn.
+    return "You are Mujahid's professional portfolio AI assistant."
 
-Rules:
-1. NEVER say "Junior Data Analyst". Main identity is Junior Full-Stack Developer and AI/LLM Developer.
-2. Keep answers short, smart, and professional. Max 2-4 short sentences.
-3. If asked about contact, provide the email.
-4. If asked unrelated/spam questions, politely redirect to portfolio, skills, projects, or contact.
-5. Use a friendly but professional tone. Do not generate very long explanations."""
+def generate_with_cloudflare(message):
+    if not CLOUDFLARE_ACCOUNT_ID or not CLOUDFLARE_API_TOKEN:
+        raise RuntimeError("Cloudflare Workers AI credentials are not configured")
 
-def generate_with_gemini(message):
-    prompt = f"{build_chat_context()}\n\nUser: {message}\nAssistant:"
-    last_error = None
-    for index, api_key in enumerate(gemini_api_keys, start=1):
-        model_name = quote(GEMINI_MODEL, safe="")
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-        payload = {
-            "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": prompt}],
-                }
-            ],
-            "generationConfig": {
-                "maxOutputTokens": GEMINI_MAX_OUTPUT_TOKENS,
-                "temperature": 0.4,
-            },
-        }
-        request_body = json.dumps(payload).encode("utf-8")
-        req = urllib_request.Request(
+    url = (
+        "https://api.cloudflare.com/client/v4/accounts/"
+        f"{CLOUDFLARE_ACCOUNT_ID}/ai/run/{CLOUDFLARE_MODEL}"
+    )
+    payload = {
+        "messages": [
+            {"role": "system", "content": build_chat_context()},
+            {"role": "user", "content": message},
+        ]
+    }
+
+    try:
+        logger.info("Calling Cloudflare Workers AI endpoint: %s", url)
+        response = requests.post(
             url,
-            data=request_body,
-            method="POST",
-            headers={"Content-Type": "application/json"},
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {CLOUDFLARE_API_TOKEN}",
+                "Content-Type": "application/json",
+            },
+            timeout=CLOUDFLARE_TIMEOUT_SECONDS,
         )
+    except requests.Timeout as error:
+        logger.exception("Cloudflare Workers AI request timed out")
+        raise RuntimeError("Cloudflare Workers AI request timed out") from error
+    except requests.RequestException as error:
+        logger.exception("Cloudflare Workers AI request failed")
+        raise RuntimeError(f"Cloudflare Workers AI request failed: {error}") from error
 
-        try:
-            with urllib_request.urlopen(req, timeout=GEMINI_TIMEOUT_SECONDS) as response:
-                data = json.loads(response.read().decode("utf-8"))
-        except HTTPError as e:
-            error_body = e.read().decode("utf-8", errors="replace")
-            last_error = f"Gemini HTTP {e.code}: {error_body}"
-            logger.warning(f"Gemini key {index} failed: {last_error}")
-            continue
-        except URLError as e:
-            last_error = f"Gemini connection error: {e.reason}"
-            logger.warning(f"Gemini key {index} failed: {last_error}")
-            continue
-        except Exception as e:
-            last_error = str(e)
-            logger.warning(f"Gemini key {index} failed: {last_error}")
+    try:
+        data = response.json()
+    except ValueError as error:
+        logger.error("Cloudflare Workers AI returned non-JSON response: %s", response.text)
+        raise RuntimeError("Cloudflare Workers AI returned non-JSON response") from error
 
-        candidates = data.get("candidates") or []
-        if not candidates:
-            last_error = "Gemini returned no candidates"
-            logger.warning(f"Gemini key {index} failed: {last_error}")
-            continue
+    logger.info(
+        "Cloudflare Workers AI full response status=%s body=%s",
+        response.status_code,
+        data,
+    )
 
-        parts = candidates[0].get("content", {}).get("parts", [])
-        text = "".join(part.get("text", "") for part in parts).strip()
-        if text:
-            return text, f"Gemini Key {index}"
+    if not response.ok:
+        # Render logs will include the complete Cloudflare response for troubleshooting.
+        logger.error("Cloudflare Workers AI HTTP %s error: %s", response.status_code, data)
+        raise RuntimeError(f"Cloudflare Workers AI HTTP {response.status_code}")
 
-        last_error = "Gemini returned no text"
-        logger.warning(f"Gemini key {index} failed: {last_error}")
+    if data.get("success") is False:
+        logger.error("Cloudflare Workers AI API error: %s", data)
+        raise RuntimeError("Cloudflare Workers AI returned an API error")
 
-    raise RuntimeError(last_error or "Gemini unavailable")
+    result = data.get("result") or {}
+    text = result.get("response") or result.get("text")
+    if not text and isinstance(result.get("choices"), list) and result["choices"]:
+        text = result["choices"][0].get("message", {}).get("content")
+
+    if not text:
+        logger.error("Cloudflare Workers AI returned no assistant text: %s", data)
+        raise RuntimeError("Cloudflare Workers AI returned no assistant text")
+
+    return text.strip(), f"Cloudflare Workers AI {CLOUDFLARE_MODEL}"
 
 def generate_with_openrouter(message):
     if not OPENROUTER_API_KEY:
-        raise RuntimeError("OpenRouter key is not configured")
+        raise RuntimeError("OpenRouter API key is not configured")
 
     payload = {
         "model": OPENROUTER_MODEL,
@@ -280,63 +270,67 @@ def generate_with_openrouter(message):
             {"role": "system", "content": build_chat_context()},
             {"role": "user", "content": message},
         ],
-        "max_tokens": GEMINI_MAX_OUTPUT_TOKENS,
-        "temperature": 0.4,
     }
-    request_body = json.dumps(payload).encode("utf-8")
-    req = urllib_request.Request(
-        "https://openrouter.ai/api/v1/chat/completions",
-        data=request_body,
-        method="POST",
-        headers={
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "http://127.0.0.1:5500",
-            "X-Title": "Mujahid Portfolio Assistant",
-        },
-    )
 
     try:
-        with urllib_request.urlopen(req, timeout=OPENROUTER_TIMEOUT_SECONDS) as response:
-            data = json.loads(response.read().decode("utf-8"))
-    except HTTPError as e:
-        error_body = e.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"OpenRouter HTTP {e.code}: {error_body}") from e
-    except URLError as e:
-        raise RuntimeError(f"OpenRouter connection error: {e.reason}") from e
+        logger.info("Calling OpenRouter fallback model: %s", OPENROUTER_MODEL)
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "http://127.0.0.1:5500",
+                "X-Title": "Mujahid Portfolio Assistant",
+            },
+            timeout=OPENROUTER_TIMEOUT_SECONDS,
+        )
+    except requests.Timeout as error:
+        logger.exception("OpenRouter request timed out")
+        raise RuntimeError("OpenRouter request timed out") from error
+    except requests.RequestException as error:
+        logger.exception("OpenRouter request failed")
+        raise RuntimeError(f"OpenRouter request failed: {error}") from error
+
+    try:
+        data = response.json()
+    except ValueError as error:
+        logger.error("OpenRouter returned non-JSON response: %s", response.text)
+        raise RuntimeError("OpenRouter returned non-JSON response") from error
+
+    if not response.ok:
+        logger.error("OpenRouter HTTP %s error: %s", response.status_code, data)
+        raise RuntimeError(f"OpenRouter HTTP {response.status_code}")
 
     choices = data.get("choices") or []
-    if not choices:
-        raise RuntimeError("OpenRouter returned no choices")
+    text = choices[0].get("message", {}).get("content") if choices else None
+    if not text:
+        logger.error("OpenRouter returned no assistant text: %s", data)
+        raise RuntimeError("OpenRouter returned no assistant text")
 
-    content = choices[0].get("message", {}).get("content")
-    if not content:
-        raise RuntimeError("OpenRouter returned no message content")
-    return content, f"OpenRouter {OPENROUTER_MODEL}"
+    return text.strip(), f"OpenRouter {OPENROUTER_MODEL}"
 
 def generate_ai_reply(message):
-    errors = []
-    if gemini_api_keys:
-        try:
-            return generate_with_gemini(message)
-        except Exception as e:
-            errors.append(f"Gemini: {e}")
-            logger.warning(f"Gemini provider failed, trying OpenRouter fallback: {e}")
-
-    if OPENROUTER_API_KEY:
-        try:
-            return generate_with_openrouter(message)
-        except Exception as e:
-            errors.append(f"OpenRouter: {e}")
-            logger.error(f"OpenRouter provider failed: {e}")
-
-    raise RuntimeError("; ".join(errors) or "No AI provider configured")
+    try:
+        return generate_with_cloudflare(message)
+    except Exception as cloudflare_error:
+        logger.exception("Cloudflare Workers AI failed; trying OpenRouter fallback")
+        if OPENROUTER_API_KEY:
+            try:
+                return generate_with_openrouter(message)
+            except Exception:
+                logger.exception("OpenRouter fallback failed")
+        raise cloudflare_error
 
 @app.route("/api/chat", methods=["POST"])
 def chat_endpoint():
-    if not gemini_api_keys and not OPENROUTER_API_KEY:
-        logger.error("No AI provider keys available")
-        return jsonify({"error": "Service not configured"}), 503
+    if (not CLOUDFLARE_ACCOUNT_ID or not CLOUDFLARE_API_TOKEN) and not OPENROUTER_API_KEY:
+        logger.error("No chatbot AI provider credentials are available")
+        return jsonify({
+            "reply": CHATBOT_FALLBACK_REPLY,
+            "key_in_use": "AI provider unavailable",
+            "status": "error"
+        })
     
     try:
         data = request.get_json()
@@ -366,11 +360,12 @@ def chat_endpoint():
             })
             
         except Exception as e:
-            logger.error(f"AI provider error: {str(e)}")
+            logger.exception(f"AI provider error: {str(e)}")
             return jsonify({
-                "error": "AI service temporarily unavailable",
-                "detail": str(e)
-            }), 503
+                "reply": CHATBOT_FALLBACK_REPLY,
+                "key_in_use": "Cloudflare Workers AI unavailable",
+                "status": "error"
+            })
             
     except Exception as e:
         logger.error(f"Server Error: {str(e)}")
