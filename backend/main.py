@@ -31,6 +31,8 @@ GMAIL_EMAIL = os.getenv("GMAIL_EMAIL")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 SMTP_TIMEOUT_SECONDS = int(os.getenv("SMTP_TIMEOUT_SECONDS", "8"))
 MAX_JSON_BYTES = int(os.getenv("MAX_JSON_BYTES", "32768"))
+CHATBOT_TEMPERATURE = float(os.getenv("CHATBOT_TEMPERATURE", "0.2"))
+CHATBOT_MAX_TOKENS = int(os.getenv("CHATBOT_MAX_TOKENS", "450"))
 
 # Initialize Flask with production configuration
 FRONTEND_DIST = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "dist"))
@@ -193,7 +195,55 @@ def send_email(contact_data):
         return jsonify({"error": "Failed to send email"}), 503
 
 def build_chat_context():
-    return "You are Mujahid's professional portfolio AI assistant."
+    return """
+You are Mujahid Islam's professional portfolio AI assistant.
+
+Your job:
+- Answer as a concise, helpful assistant for Mujahid's portfolio website.
+- Help visitors learn about Mujahid's projects, services, tech stack, and availability.
+- Encourage serious project or hiring conversations to use the contact form.
+
+Known portfolio facts:
+- Mujahid Islam is a full-stack developer focused on modern web apps, SaaS dashboards, automation tools, and LLM-powered chatbot systems.
+- He works with React, Vite, Tailwind CSS, Python, Flask, Django, Django REST Framework, PostgreSQL, Git, GitHub, Vercel, Render, Postman, OpenAI API, Gemini API, Groq API, LangChain, Telegram Bot, WhatsApp API, and Google Sheets API.
+- Services include AI chatbots and LLM integration, custom web applications, automation workflows, SaaS and dashboard development, and responsive business websites.
+- Projects include Ecomerce Primium Website, AI SalesBot SaaS, Dental Clinic Website, AI Chatbot API Platform, and Portfolio Website.
+
+Rules:
+- Do not invent personal details, prices, private contact information, degrees, employers, or guarantees.
+- If you do not know something, say that the portfolio does not provide that detail and suggest contacting Mujahid.
+- If the user asks unrelated general questions, answer briefly only when useful, then bring the conversation back to Mujahid's work.
+- Keep replies under 120 words unless the user asks for detail.
+""".strip()
+
+def build_chat_messages(message):
+    return [
+        {"role": "system", "content": build_chat_context()},
+        {"role": "user", "content": message},
+    ]
+
+def extract_chat_completion_text(data, provider_name):
+    choices = data.get("choices") or []
+    if choices:
+        message = choices[0].get("message") or {}
+        text = message.get("content") or choices[0].get("text")
+        if text:
+            return text
+
+    result = data.get("result") or {}
+    if isinstance(result, dict):
+        text = result.get("response") or result.get("text")
+        if text:
+            return text
+        result_choices = result.get("choices") or []
+        if result_choices:
+            message = result_choices[0].get("message") or {}
+            text = message.get("content") or result_choices[0].get("text")
+            if text:
+                return text
+
+    logger.error("%s returned no assistant text: %s", provider_name, data)
+    raise RuntimeError(f"{provider_name} returned no assistant text")
 
 def generate_with_cloudflare(message):
     if not CLOUDFLARE_ACCOUNT_ID or not CLOUDFLARE_API_TOKEN:
@@ -201,17 +251,17 @@ def generate_with_cloudflare(message):
 
     url = (
         "https://api.cloudflare.com/client/v4/accounts/"
-        f"{CLOUDFLARE_ACCOUNT_ID}/ai/run/{CLOUDFLARE_MODEL}"
+        f"{CLOUDFLARE_ACCOUNT_ID}/ai/v1/chat/completions"
     )
     payload = {
-        "messages": [
-            {"role": "system", "content": build_chat_context()},
-            {"role": "user", "content": message},
-        ]
+        "model": CLOUDFLARE_MODEL,
+        "messages": build_chat_messages(message),
+        "temperature": CHATBOT_TEMPERATURE,
+        "max_tokens": CHATBOT_MAX_TOKENS,
     }
 
     try:
-        logger.info("Calling Cloudflare Workers AI endpoint: %s", url)
+        logger.info("Calling Cloudflare Workers AI model: %s", CLOUDFLARE_MODEL)
         response = requests.post(
             url,
             json=payload,
@@ -234,11 +284,7 @@ def generate_with_cloudflare(message):
         logger.error("Cloudflare Workers AI returned non-JSON response: %s", response.text)
         raise RuntimeError("Cloudflare Workers AI returned non-JSON response") from error
 
-    logger.info(
-        "Cloudflare Workers AI full response status=%s body=%s",
-        response.status_code,
-        data,
-    )
+    logger.info("Cloudflare Workers AI response status=%s", response.status_code)
 
     if not response.ok:
         # Render logs will include the complete Cloudflare response for troubleshooting.
@@ -249,14 +295,7 @@ def generate_with_cloudflare(message):
         logger.error("Cloudflare Workers AI API error: %s", data)
         raise RuntimeError("Cloudflare Workers AI returned an API error")
 
-    result = data.get("result") or {}
-    text = result.get("response") or result.get("text")
-    if not text and isinstance(result.get("choices"), list) and result["choices"]:
-        text = result["choices"][0].get("message", {}).get("content")
-
-    if not text:
-        logger.error("Cloudflare Workers AI returned no assistant text: %s", data)
-        raise RuntimeError("Cloudflare Workers AI returned no assistant text")
+    text = extract_chat_completion_text(data, "Cloudflare Workers AI")
 
     return text.strip(), f"Cloudflare Workers AI {CLOUDFLARE_MODEL}"
 
@@ -266,10 +305,9 @@ def generate_with_openrouter(message):
 
     payload = {
         "model": OPENROUTER_MODEL,
-        "messages": [
-            {"role": "system", "content": build_chat_context()},
-            {"role": "user", "content": message},
-        ],
+        "messages": build_chat_messages(message),
+        "temperature": CHATBOT_TEMPERATURE,
+        "max_tokens": CHATBOT_MAX_TOKENS,
     }
 
     try:
@@ -302,11 +340,7 @@ def generate_with_openrouter(message):
         logger.error("OpenRouter HTTP %s error: %s", response.status_code, data)
         raise RuntimeError(f"OpenRouter HTTP {response.status_code}")
 
-    choices = data.get("choices") or []
-    text = choices[0].get("message", {}).get("content") if choices else None
-    if not text:
-        logger.error("OpenRouter returned no assistant text: %s", data)
-        raise RuntimeError("OpenRouter returned no assistant text")
+    text = extract_chat_completion_text(data, "OpenRouter")
 
     return text.strip(), f"OpenRouter {OPENROUTER_MODEL}"
 
