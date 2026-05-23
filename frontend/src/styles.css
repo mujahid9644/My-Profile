@@ -210,8 +210,9 @@ a {
   .marquee-row {
     display: flex;
     gap: 1rem;
-    width: 200%;
+    width: max-content;
     flex-shrink: 0;
+    will-change: transform;
   }
 
   .marquee-row.animate-left {
@@ -236,12 +237,12 @@ a {
   /* Responsive speed adjustments */
   @media (max-width: 768px) {
     .marquee-row.animate-left {
-      animation: marquee-left 40s linear infinite;
+      animation: marquee-left 20s linear infinite;
       animation-play-state: paused;
     }
 
     .marquee-row.animate-right {
-      animation: marquee-right 40s linear infinite;
+      animation: marquee-right 20s linear infinite;
       animation-play-state: paused;
     }
 

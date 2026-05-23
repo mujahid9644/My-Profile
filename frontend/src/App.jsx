@@ -3,6 +3,7 @@ import { AnimatePresence } from 'framer-motion';
 import Navbar from './components/Navbar.jsx';
 import Hero from './components/Hero.jsx';
 import About from './components/About.jsx';
+import Certifications from './components/Certifications.jsx';
 import Skills from './components/Skills.jsx';
 import Projects from './components/Projects.jsx';
 import Contact from './components/Contact.jsx';
@@ -111,6 +112,7 @@ export default function App() {
         <FloatingSocials />
         <main>
           <Hero />
+          <Certifications />
           <Skills />
           <Projects />
           <Services />

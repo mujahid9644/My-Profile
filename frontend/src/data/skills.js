@@ -61,7 +61,7 @@ export const projects = [
     githubUrl: 'https://github.com/mujahid9644',
   },
   {
-    title: 'AI SalesBot SaaS',
+    title: 'SaleXpart AI',
     description: 'A SaaS concept for AI-assisted sales conversations, lead capture, and automated follow-up workflows.',
     imageUrl: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=1200&q=80',
     icon: TbRobot,
@@ -96,12 +96,12 @@ export const projects = [
   {
     title: 'Portfolio Website',
     description: 'A premium developer portfolio with modern UI, project showcase, contact form, and AI assistant integration.',
-    imageUrl: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: 'https://res.cloudinary.com/dw8r48tmq/image/upload/v1777553283/potfolioss_kbjs0n.png',
     icon: FaReact,
     stack: ['React', 'Vite', 'Tailwind CSS', 'GitHub Pages'],
     features: ['Theme switching system', 'Interactive project cards', 'AI assistant widget', 'Responsive premium layout'],
     challenges: ['Making the UI feel high-end', 'Keeping content flexible for future themes', 'Adding motion without heaviness'],
-    liveUrl: 'https://mujahid9644.github.io/my_protfolio',
+    liveUrl: 'https://mujahid9644.github.io/my_protfolio/',
     githubUrl: 'https://github.com/mujahid9644',
   },
 ];

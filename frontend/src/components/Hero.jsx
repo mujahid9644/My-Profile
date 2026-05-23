@@ -1,8 +1,18 @@
 import { motion } from 'framer-motion';
 import { FaBolt } from 'react-icons/fa';
+import { useTheme } from '../theme/ThemeProvider.jsx';
 import GlowButton from './ui/GlowButton.jsx';
 
+const heroImages = {
+  'cyber-blue': '/hero.jpg',
+  'purple-luxury': '/herop.png',
+  'emerald-tech': '/herog.png',
+};
+
 export default function Hero() {
+  const { theme } = useTheme();
+  const heroImage = heroImages[theme.id] ?? heroImages['cyber-blue'];
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -44,7 +54,7 @@ export default function Hero() {
           >
             <div className="w-full overflow-hidden rounded-3xl border border-white/10 bg-black/30 shadow-2xl shadow-cyan-500/10">
               <img
-                src="/hero.jpg"
+                src={heroImage}
                 alt="Mujahid Islam - Developer"
                 className="h-auto max-h-[52vh] w-full object-contain md:max-h-[650px]"
                 loading="eager"
