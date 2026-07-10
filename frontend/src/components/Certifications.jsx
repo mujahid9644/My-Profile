@@ -8,22 +8,22 @@ const certifications = [
     title: 'AI-Powered UI/UX Design: Figma AI, Claude & Nano-Banana',
     issuer: 'Ostad',
     imageUrl:
-      'https://media.licdn.com/dms/image/v2/D5622AQGvyRrE0CJzNw/feedshare-image-high-res/B56Z5VNOiiKQAU-/0/1779545991534?e=1781136000&v=beta&t=UUWBKBQAtZXNPf4Nfaf2AXOvi7mpXO_Y1tJ7FFoAAPU',
-    certificateUrl: 'https://ostad.app/',
+      '/OstadUIUX.PNG',
+    certificateUrl: 'https://ostad.app/share/certificate/c42482-mujahid',
   },
   {
     title: 'Responsive Web Design',
     issuer: 'freeCodeCamp',
     imageUrl:
-      'https://media.licdn.com/dms/image/v2/D5622AQHfNDfMPi2Yzg/feedshare-shrink_800/B56Z5VyU95HUAc-/0/1779555717194?e=1781136000&v=beta&t=NJ3NcKNScLJ_8HOWZXQBJ6CjernBaIZiZ53jzvxSUaQ',
+      'rwdfree.png',
     certificateUrl: 'https://www.freecodecamp.org/certification/mujahid9644/responsive-web-design',
   },
   {
     title: 'AI Automation',
     issuer: 'Professional Training',
     imageUrl:
-      'https://media.licdn.com/dms/image/v2/D5622AQH_Bm-aiyRWUg/feedshare-shrink_800/B56Z5VyVD0GgAc-/0/1779555717594?e=1781136000&v=beta&t=rTqxw0aN3UZmfGxDk-zuUqR7eA8zfO-42sl1_KgwieA',
-    certificateUrl: '#',
+      'ai_automation.png',
+    certificateUrl: 'https://ostad.app/share/certificate/c42484-mujahid',
   },
 ];
 

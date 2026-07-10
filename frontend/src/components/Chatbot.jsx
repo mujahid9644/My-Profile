@@ -9,7 +9,7 @@ export default function Chatbot() {
   const [messages, setMessages] = useState([
     {
       from: 'bot',
-      text: "Hi! I'm Mujahid's AI Assistant. Ask me about his projects, tech stack, services, or availability for work.",
+      text: "Hi! I'm Mujahid's AI Assistant. Ask me about his projects, tech stack, services, or availability for work. \n\n💡First reply may take less than 1 minute (free hosting). Fast afterward.",
     },
   ]);
   const [status, setStatus] = useState('Online');

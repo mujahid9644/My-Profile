@@ -68,7 +68,7 @@ export const projects = [
     stack: ['Django', 'React', 'PostgreSQL', 'LLM API'],
     features: ['Lead capture workflows', 'Fallback AI responses', 'Conversion-ready prompts', 'Automation-friendly routing'],
     challenges: ['Keeping response latency low', 'Designing flexible lead flows', 'Balancing conversion UX with chatbot depth'],
-    liveUrl: '#contact',
+    liveUrl: 'https://github.com/mujahid9644',
     githubUrl: 'https://github.com/mujahid9644',
   },
   {
@@ -90,7 +90,7 @@ export const projects = [
     stack: ['Python', 'REST API', 'Gemini', 'OpenRouter', 'Render'],
     features: ['Multi-provider fallback', 'Custom prompt routing', 'Production deployment flow', 'Reusable chatbot endpoint'],
     challenges: ['Handling provider failures cleanly', 'Keeping responses short and useful', 'Adding safe fallbacks for outages'],
-    liveUrl: '#contact',
+    liveUrl: 'https://github.com/mujahid9644/Mimpex',
     githubUrl: 'https://github.com/mujahid9644',
   },
   {
