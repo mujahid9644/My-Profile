@@ -1,6 +1,25 @@
 export const THEME_STORAGE_KEY = 'portfolio-theme';
 
 export const themes = [
+    {
+    id: 'emerald-tech',
+    name: 'Emerald Tech',
+    description: 'Fresh green for AI-product feel.',
+    tokens: {
+      '--bg-primary': '#246274',
+      '--bg-secondary': '#1e5261',
+      '--text-primary': '#95e8e4',
+      '--text-muted': '#a7c8b7',
+      '--accent-primary': '#59f0b5',
+      '--accent-secondary': '#1e5261',
+      '--card-bg': 'rgba(8, 25, 18, 0.75)',
+      '--card-border': 'rgba(89, 240, 181, 0.24)',
+      '--glow-color': '89, 240, 181',
+      '--success-color': '89, 240, 181',
+      '--danger-color': '255, 126, 126',
+    },
+  },
+
   {
     id: 'cyber-blue',
     name: 'Lightning Orange',
@@ -37,26 +56,8 @@ export const themes = [
       '--danger-color': '255, 130, 164',
     },
   },
-  {
-    id: 'emerald-tech',
-    name: 'Emerald Tech',
-    description: 'Fresh green for AI-product feel.',
-    tokens: {
-      '--bg-primary': '#246274',
-      '--bg-secondary': '#1e5261',
-      '--text-primary': '#95e8e4',
-      '--text-muted': '#a7c8b7',
-      '--accent-primary': '#59f0b5',
-      '--accent-secondary': '#1e5261',
-      '--card-bg': 'rgba(8, 25, 18, 0.75)',
-      '--card-border': 'rgba(89, 240, 181, 0.24)',
-      '--glow-color': '89, 240, 181',
-      '--success-color': '89, 240, 181',
-      '--danger-color': '255, 126, 126',
-    },
-  },
-];
 
+];
 export const themeById = themes.reduce((accumulator, theme) => {
   accumulator[theme.id] = theme;
   return accumulator;

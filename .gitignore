@@ -33,6 +33,8 @@ ENV/
 backend/.env
 backend/server.*.log
 vite.*.log
+.env.local
+backend/.env.local
 
 # IDE specific files
 .idea/
