@@ -26,7 +26,7 @@ export default function App() {
     const timer = setTimeout(() => {
       setIsLoading(false);
       unlockScroll();
-    }, 3600);
+    }, 3000);
 
     return () => {
       clearTimeout(timer);
@@ -34,63 +34,6 @@ export default function App() {
     };
   }, []);
 
-  useEffect(() => {
-    if (isLoading) {
-      return undefined;
-    }
-
-    let wheelHandled = false;
-    let touchHandled = false;
-    let touchStartY = 0;
-
-    const recoverScroll = (startX, startY, deltaX, deltaY) => {
-      window.requestAnimationFrame(() => {
-        const scrollDidNotMove = window.scrollX === startX && window.scrollY === startY;
-
-        if (scrollDidNotMove && (deltaX !== 0 || deltaY !== 0)) {
-          window.scrollBy({ left: deltaX, top: deltaY, behavior: 'auto' });
-        }
-      });
-    };
-
-    const handleFirstWheel = (event) => {
-      if (wheelHandled) {
-        return;
-      }
-
-      wheelHandled = true;
-      recoverScroll(window.scrollX, window.scrollY, event.deltaX, event.deltaY);
-      window.removeEventListener('wheel', handleFirstWheel, true);
-    };
-
-    const handleTouchStart = (event) => {
-      touchStartY = event.touches[0]?.clientY ?? 0;
-    };
-
-    const handleFirstTouchMove = (event) => {
-      if (touchHandled) {
-        return;
-      }
-
-      const currentY = event.touches[0]?.clientY ?? touchStartY;
-      const deltaY = touchStartY - currentY;
-
-      touchHandled = true;
-      recoverScroll(window.scrollX, window.scrollY, 0, deltaY);
-      window.removeEventListener('touchmove', handleFirstTouchMove, true);
-      window.removeEventListener('touchstart', handleTouchStart, true);
-    };
-
-    window.addEventListener('wheel', handleFirstWheel, { capture: true, passive: true });
-    window.addEventListener('touchstart', handleTouchStart, { capture: true, passive: true });
-    window.addEventListener('touchmove', handleFirstTouchMove, { capture: true, passive: true });
-
-    return () => {
-      window.removeEventListener('wheel', handleFirstWheel, true);
-      window.removeEventListener('touchstart', handleTouchStart, true);
-      window.removeEventListener('touchmove', handleFirstTouchMove, true);
-    };
-  }, [isLoading]);
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-300">
